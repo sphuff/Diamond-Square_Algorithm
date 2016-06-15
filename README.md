@@ -1,0 +1,1 @@
+This is a Javascript implementation of the Diamond-Square Algorithm, an algorithm used to generate realistic heightmaps.
