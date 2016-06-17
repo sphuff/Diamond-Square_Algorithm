@@ -6,6 +6,21 @@
 var N = 5; // array needs to be of size 2^n - 1
 var G = [];
 
+if(process.argv.length > 2){
+    if(process.argv[2] < 5) {
+        console.log("Please choose a valid array size greater than 5.");
+        process.exit();
+    } else {
+        var nMinusOne = process.argv[2] - 1;
+        if((nMinusOne & (nMinusOne - 1)) == 0){
+            N = process.argv[2];
+        } else {
+            console.log("The array needs to be of size 2^n - 1");
+            process.exit();
+        }
+    }
+}
+
 for(var i = 0; i < N; i++){
     G[i] = [];
     for(var j = 0; j < N; j++){
@@ -18,6 +33,14 @@ var roughness = 0.5; // roughness is a value between 0 and 1 that
 // determines fluctations in elevation. Lower values correspond 
 // with smoother terrain, while higher values create more 
 // mountainous terrain
+
+// initialize four corners to 5 (arbitrary "flat" elevation)
+G[0][max] = 5;
+G[max][max] = 5;
+G[0][0] = 5;
+G[max][0] = 5;
+
+divide(max);
 
 function divide(N){
     var x, y, half = N/2;
@@ -68,17 +91,17 @@ function diamond(x, y, size, offset){
     G[x][y] = avg + offset;
 }
 
-function draw() {
+/*
+    Finds the average height of the grid, in order to determine the true "flat" 
+    elevation.
+*/
+function findAverageHeight() {
+    var sum = 0;
     for(var i = 0; i < G.length; i++){
-        console.log(G[i]);
+        for(var j = 0; j < G[i].length; j++){
+            sum += G[i][j];
+        }
     }
+    
+    return sum/(N*N);
 }
-
-// initialize four corners to 5 (arbitrary "flat" elevation)
-G[0][max] = 5;
-G[max][max] = 5;
-G[0][0] = 5;
-G[max][0] = 5;
-
-divide(max);
-draw();
