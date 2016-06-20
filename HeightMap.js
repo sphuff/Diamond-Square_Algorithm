@@ -3,12 +3,17 @@
 /*
     An implementation for the Diamond-Square algorithm
 */
+var G = [];
+var N;
+var max;
+var roughness;
+
 function generateAndDraw(){
-    var N = document.getElementById("gridSize").value;
+    N = document.getElementById("gridSize").value;
     if(isNaN(N) || !isValidGridSize(N)){
         return;
     }
-    var G = [];
+    G = [];
     
     for(var i = 0; i < N; i++){
         G[i] = [];
@@ -17,8 +22,8 @@ function generateAndDraw(){
         }
     }
     
-    var max = N - 1;
-    var roughness = 0.5;
+    max = N - 1;
+    roughness = 0.5;
     
     // initialize four corners to 5 (arbitrary "flat" elevation)
     G[0][max] = 5;
@@ -27,14 +32,17 @@ function generateAndDraw(){
     G[max][0] = 5;
     
     
-    divide(G, N, roughness, max);
+    divide(G, N);
     draw(G, N);
 }
 
 /*
-    Checks the grid size to see if it is of size 2^n + 1
+    Checks the grid size to see if it is greater than 5, and of size 2^n + 1
 */
 function isValidGridSize(gridSize){
+    if(gridSize < 5){
+        return false;
+    }
     var nMinusOne = gridSize - 1;
     if((nMinusOne & (nMinusOne - 1)) == 0){
         return true;
@@ -43,7 +51,7 @@ function isValidGridSize(gridSize){
     }
 }
 
-function divide(G, N, roughness, max){
+function divide(G, N){
     var x, y, half = Math.floor(N/2);
     var scale = roughness * N; // diminishes over time, so initial values 
     // have more weight
@@ -61,18 +69,18 @@ function divide(G, N, roughness, max){
             diamond(G, x, y, half, Math.random() * scale * 2 - scale, max);
         }
     }
-    divide(G, Math.floor(N/2), roughness, max);
+    divide(G, Math.floor(N/2));
 }
 /*
     Square step, in which the midpoint is given the average of the four
     corners of the square plus some offset. 
 */
-function square(G, x, y, size, offset, max){
+function square(G, x, y, size, offset){
     var avg = 
-        average(mapValue(G, x+size, y-size, size, max), // top right
-               mapValue(G, x-size, y+size, size, max), // bottom left
-               mapValue(G, x+size, y+size, size, max), // bottom right
-               mapValue(G, x-size, y-size, size, max)); // top left
+        average(mapValue(G, x+size, y-size, max), // top right
+               mapValue(G, x-size, y+size, max), // bottom left
+               mapValue(G, x+size, y+size, max), // bottom right
+               mapValue(G, x-size, y-size, max)); // top left
     G[x][y] = avg + offset;
 }
 
@@ -81,19 +89,19 @@ function square(G, x, y, size, offset, max){
     four corner of the diamond plus some offset. If there is a point out of bounds,
     I decided to wrap around the array, rather than just choosing the 3 valid points.
 */
-function diamond(G, x, y, size, offset, max){
+function diamond(G, x, y, size, offset){
     var avg = 
-        average(mapValue(G, x, y - size, size, max), // top
-               mapValue(G, x - size, y, size, max), // left
-               mapValue(G, x, y + size, size, max), // bottom
-               mapValue(G, x + size, y, size, max)); // right
+        average(mapValue(G, x, y - size, max), // top
+               mapValue(G, x - size, y, max), // left
+               mapValue(G, x, y + size, max), // bottom
+               mapValue(G, x + size, y, max)); // right
     G[x][y] = avg + offset;
 }
 
 /*
     Returns a value if the index is valid, and if not, returns NaN 
 */
-function mapValue(heightMap, x, y, size, max){
+function mapValue(heightMap, x, y, max){
     if(x < 0 || x > max || y < 0 || y > max){
         return NaN;
     } else {
@@ -101,13 +109,12 @@ function mapValue(heightMap, x, y, size, max){
     }
 }
 
-function average(val1, val2, val3, val4){
-    var values = [val1, val2, val3, val4];
+function average(){
     var sum = 0;
     var counter = 0;
-    for(var i = 0; i < 4; i++){
-        if(!isNaN(values[i])){
-            sum += values[i];
+    for(var i = 0; i < arguments.length; i++){
+        if(!isNaN(arguments[i])){
+            sum += arguments[i];
             counter++;
         }
     }
@@ -137,8 +144,7 @@ function Shape(x, y, width, height, fill){
 }
 
 /*
-    Calculates the deviation from the mean for each index on the grid,
-    and colors the grid accordingly.
+    Colors the grid according to deviations in height.
 */
 function draw(heightMap, N) {
     var canvas = document.getElementById("myCanvas");
@@ -153,17 +159,7 @@ function draw(heightMap, N) {
     var flatElevation = findAverageHeight(heightMap, N);
     for(var i = 0; i < N; i++){
         for(var j = 0; j < N; j++){
-            var deviationFromAverage = heightMap[i][j] - flatElevation;
-            var grayscaleValue;
-            var rgbValue;
-            // higher elevations are darker
-            if(deviationFromAverage > 0){
-                grayscaleValue = Math.round(127 + deviationFromAverage*10); 
-            } else {
-                // lower elevations are lighter
-                grayscaleValue = Math.round(127 - deviationFromAverage*10);
-            }
-            rgbValue = 'rgb(' + grayscaleValue + ', ' + grayscaleValue + ', ' + grayscaleValue + ')';
+            var rgbValue = calculateFill(heightMap, flatElevation, i, j);
             colorArray.push(new Shape(i*cellWidth, j*cellHeight, cellWidth, cellHeight, rgbValue));   
         }
     }
@@ -175,8 +171,49 @@ function draw(heightMap, N) {
     }
 }
 
+/*
+    Calculates the fill of an index based on it's relative height deviation
+    from the mean
+*/
+function calculateFill(heightMap, average, x, y){
+    var deviationFromAverage = heightMap[x][y] - average;
+    var grayscaleValue;
+    var rgbValue;
+    // higher elevations are darker
+    if(deviationFromAverage > 0){
+        grayscaleValue = Math.round(127 + deviationFromAverage*10); 
+    } else {
+        // lower elevations are lighter
+        grayscaleValue = Math.round(127 - deviationFromAverage*10);
+    }
+    rgbValue = 'rgb(' + grayscaleValue + ', ' + grayscaleValue + ', ' + grayscaleValue + ')';
+    return rgbValue;
+}
+    
 function printHeightMap(heightMap, N) {
     for(var i = 0; i < N; i++){
         console.log(heightMap[i]);
     }
+}
+
+/*
+    Smooths the heightMap by averaging the values of each index's neighbors. 
+*/
+function smoothHeightMap(){
+    if(G.length == 0){
+        return;
+    }
+    for(var i = 0; i < N; i++){
+        for(var j = 0; j < N; j++){
+            G[i][j] = average(mapValue(G, i-1, j-1, max),
+                             mapValue(G, i-1, j, max),
+                             mapValue(G, i-1, j+1, max),
+                             mapValue(G, i, j-1, max),
+                             mapValue(G, i, j+1, max),
+                             mapValue(G, i+1, j-1, max),
+                             mapValue(G, i+1, j, max),
+                             mapValue(G, i+1, j+1, max));
+        }
+    }
+    draw(G, N);
 }
